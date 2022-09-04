@@ -20,9 +20,11 @@ func main() {
 
 	r := gin.Default()
 
-	r.POST("/api/v1/users", api.CreateUser(clients))
-
 	r.StaticFS("/", http.Dir("dist"))
+	r.POST("/api/v1/users", api.CreateUser(clients))
+	r.NoRoute(func(c *gin.Context) {
+		c.Redirect(301, "/")
+	})
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }

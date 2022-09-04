@@ -7,6 +7,7 @@ import type { Template } from "../models/template.model";
 import { onSnapshot } from "@firebase/firestore";
 import { collection, getFirestore } from "firebase/firestore";
 import { useUserStore } from "../stores/user.store";
+import { parseTemplate } from "@/parsers/template";
 
 const db = getFirestore(firebaseApp);
 const userStore = useUserStore();
@@ -20,9 +21,7 @@ onMounted(() => {
     onSnapshot(
       collection(db, `users/${user.value.id}/templates`),
       (snapshot) => {
-        data.templates = snapshot.docs.map((doc) => {
-          return { ...doc.data(), id: doc.id } as Template;
-        });
+        data.templates = snapshot.docs.map((doc) => parseTemplate(doc));
       }
     );
   }

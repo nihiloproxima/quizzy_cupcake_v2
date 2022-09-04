@@ -39,6 +39,12 @@ async function save() {
   return updateDoc(ref, state.template);
 }
 
+function removeQuestion(question: Question) {
+  const index = state.template.questions.indexOf(question);
+  state.template.questions.splice(index, 1);
+  save();
+}
+
 function removeAnswer(question: Question, answer: Answer) {
   const index = question.answers.indexOf(answer);
   if (index > -1) {
@@ -149,22 +155,46 @@ onMounted(() => {
           v-for="(question, index) in state.template.questions"
           :key="index"
         >
-          <h5 class="mb-2 text-2xl font-semibold text-gray-900 dark:text-white">
-            {{ index + 1 }}.
-            <span
-              contenteditable
-              @blur="input($event, `questions[${index}].title`)"
-              @keydown.enter="focusAnswer($event, index, 0)"
+          <div class="flex items-stretch px-2 mb-2">
+            <h5
+              class="mb-2 w-full text-2xl font-semibold text-gray-900 dark:text-white"
             >
-              {{ question.title }}</span
+              {{ index + 1 }}.
+              <span
+                contenteditable
+                @blur="input($event, `questions[${index}].title`)"
+                @keydown.enter="focusAnswer($event, index, 0)"
+              >
+                {{ question.title }}</span
+              >
+              <span class="ml-2 text-sm" v-if="hasMultipleAnswer(question)"
+                >(Plusieurs réponses possibles)</span
+              ><span class="ml-2 text-sm" v-else
+                >(Une seule réponse possible)</span
+              >
+            </h5>
+            <button
+              @click="removeQuestion(question)"
+              type="button"
+              class="relative mr-2 text-gray-700 border border-gray-700 hover:bg-gray-700 hover:text-white focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-full text-sm p-2.5 text-center inline-flex items-center dark:border-gray-500 dark:text-gray-500 dark:hover:text-white dark:focus:ring-gray-800"
             >
-            <span class="ml-2 text-sm" v-if="hasMultipleAnswer(question)"
-              >(Plusieurs réponses possibles)</span
-            ><span class="ml-2 text-sm" v-else
-              >(Une seule réponse possible)</span
-            >
-          </h5>
-
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M20 12H4"
+                ></path>
+              </svg>
+              <span class="sr-only">Icon description</span>
+            </button>
+          </div>
           <!-- Answers list -->
           <div
             v-for="(answer, answerIndex) in question.answers"
