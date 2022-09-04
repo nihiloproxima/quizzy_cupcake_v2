@@ -1,23 +1,34 @@
 <script setup lang="ts">
 import { RouterLink, RouterView } from "vue-router";
-import { useStore } from "@/stores";
-import { auth } from "@/lib/db";
+import { auth } from "./lib/db";
 import { onAuthStateChanged } from "firebase/auth";
-import { computed } from "@vue/runtime-core";
+import { reactive } from "@vue/runtime-core";
+import Navbar from "./components/Navbar.vue";
+import { useUserStore } from "./stores/user.store";
 
-let user = computed(() => {
-  return useStore().state.user;
-});
+const userStore = useUserStore();
 
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    console.log("User is signed in");
+onAuthStateChanged(auth, async (authUser) => {
+  if (authUser) {
+    const token = await authUser.getIdToken();
+    localStorage.setItem("token", token);
+    return userStore.set(authUser.uid);
   } else {
-    console.log("User is signed out");
+    localStorage.removeItem("token");
+    return userStore.remove();
   }
 });
 </script>
 
 <template>
-  <RouterView />
+  <div v-if="userStore.user">
+    <Navbar />
+
+    <main class="mt-20">
+      <RouterView />
+    </main>
+  </div>
+  <div v-else>
+    <RouterView />
+  </div>
 </template>

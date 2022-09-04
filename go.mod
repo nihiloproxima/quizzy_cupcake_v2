@@ -1,6 +1,6 @@
 module quizzy_cupcake
 
-go 1.19
+go 1.16
 
 require (
 	cloud.google.com/go v0.102.1 // indirect

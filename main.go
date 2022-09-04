@@ -22,7 +22,7 @@ func main() {
 
 	r.POST("/api/v1/users", api.CreateUser(clients))
 
-	r.StaticFS("/", http.Dir("app/dist"))
+	r.StaticFS("/", http.Dir("dist"))
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }

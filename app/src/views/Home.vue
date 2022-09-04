@@ -1,11 +1,44 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { reactive } from "@vue/reactivity";
+import { computed, onMounted } from "@vue/runtime-core";
+import { firebaseApp } from "../lib/db";
+import TemplateCard from "../components/TemplateCard.vue";
+import type { Template } from "../models/template.model";
+import { onSnapshot } from "@firebase/firestore";
+import { collection, getFirestore } from "firebase/firestore";
+import { useUserStore } from "../stores/user.store";
+
+const db = getFirestore(firebaseApp);
+const userStore = useUserStore();
+
+const user = computed(() => userStore.user ?? null);
+
+let data = reactive<{ templates: Array<Template> }>({ templates: [] });
+
+onMounted(() => {
+  if (user.value) {
+    onSnapshot(
+      collection(db, `users/${user.value.id}/templates`),
+      (snapshot) => {
+        data.templates = snapshot.docs.map((doc) => {
+          return { ...doc.data(), id: doc.id } as Template;
+        });
+      }
+    );
+  }
+});
+</script>
 
 <template>
-  <div
-    class="p-4 mb-4 text-sm text-blue-700 bg-blue-100 rounded-lg dark:bg-blue-200 dark:text-blue-800"
-    role="alert"
-  >
-    <span class="font-medium">Info alert!</span> Change a few things up and try
-    submitting again.
+  <div class="p-10">
+    <div class="grid grid-cols-3 gap-4">
+      <div
+        class="col-span-1"
+        v-for="(item, index) in data.templates"
+        :key="index"
+      >
+        <TemplateCard :template="item" />
+      </div>
+    </div>
   </div>
 </template>
