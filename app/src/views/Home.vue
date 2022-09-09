@@ -2,26 +2,27 @@
 import { reactive } from '@vue/reactivity';
 import { computed, onMounted } from '@vue/runtime-core';
 import { firebaseApp } from '../lib/db';
-import TemplateCard from '../components/TemplateCard.vue';
-import type { Template } from '../models/template.model';
+import QuizzCard from '../components/QuizzCard.vue';
+import type { Quizz } from '../models/quizz.model';
 import { onSnapshot } from '@firebase/firestore';
-import { collection, getFirestore } from 'firebase/firestore';
+import { collection, getFirestore, query, where } from 'firebase/firestore';
 import { useUserStore } from '../stores/user.store';
-import { parseTemplate } from '../parsers/template';
+import { parseQuizz } from '../parsers/quizz.parser';
 import { ref } from 'vue';
 
 const db = getFirestore(firebaseApp);
 const userStore = useUserStore();
-const selectedTemplate = ref<Template | null>(null);
+const selectedTemplate = ref<Quizz | null>(null);
 
 const user = computed(() => userStore.user ?? null);
-
-let data = reactive<{ templates: Array<Template> }>({ templates: [] });
+const quizzs = ref<Array<Quizz>>([]);
 
 onMounted(() => {
 	if (user.value) {
-		onSnapshot(collection(db, `users/${user.value.id}/templates`), (snapshot) => {
-			data.templates = snapshot.docs.map((doc) => parseTemplate(doc));
+		const q = query(collection(db, 'quizzs'), where('user_id', '==', user.value.id));
+		onSnapshot(q, (querySnapshot) => {
+			quizzs.value = [];
+			querySnapshot.forEach((doc) => quizzs.value.push(parseQuizz(doc)));
 		});
 	}
 });
@@ -29,9 +30,9 @@ onMounted(() => {
 
 <template>
 	<div class="p-10">
-		<div class="grid grid-cols-3 gap-4">
-			<div class="col-span-1" v-for="(item, index) in data.templates" :key="index">
-				<TemplateCard @select-template="selectedTemplate = item" :template="item" />
+		<div class="grid sm:grid-cols-3 lg:grid-cols-4 gap-4">
+			<div class="col-span-1 place-content-center" v-for="(item, index) in quizzs" :key="index">
+				<QuizzCard @select-template="selectedTemplate = item" :quizz="item" />
 			</div>
 		</div>
 	</div>

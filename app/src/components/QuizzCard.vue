@@ -6,26 +6,26 @@ import { getFirestore, deleteDoc } from '@firebase/firestore';
 import { reactive } from '@vue/reactivity';
 import { doc } from 'firebase/firestore';
 import { firebaseApp } from '../lib/db';
-import type { Template } from '../models/template.model';
+import type { Quizz } from '../models/quizz.model';
 import { useUserStore } from '../stores/user.store';
 
 const userStore = useUserStore();
 const db = getFirestore(firebaseApp);
 
-const props = defineProps<{ template: Template }>();
+const props = defineProps<{ quizz: Quizz }>();
 const showMenu = ref<boolean>(false);
 const showShare = ref<boolean>(false);
 
-async function deleteTemplate() {
+async function deleteQuizz() {
 	showMenu.value = false;
-	const ref = doc(db, `users/${userStore.user!.id}/templates/${props.template.id}`);
+	const ref = doc(db, `quizzs/${props.quizz.id}`);
 	await deleteDoc(ref);
 }
 </script>
 
 <template>
 	<div
-		v-if="template"
+		v-if="quizz"
 		class="w-full max-w-sm bg-white rounded-lg border border-gray-200 shadow-md dark:bg-gray-800 dark:border-gray-700"
 	>
 		<div class="flex justify-end px-4 pt-4 relative">
@@ -37,12 +37,7 @@ async function deleteTemplate() {
 				type="button"
 			>
 				<span class="sr-only">Open dropdown</span>
-				<svg
-					class="w-6 h-6"
-					fill="currentColor"
-					viewBox="0 0 20 20"
-					xmlns="http://www.w3.org/2000/svg"
-				>
+				<svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
 					<path
 						d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z"
 					></path>
@@ -57,12 +52,12 @@ async function deleteTemplate() {
 				<ul class="py-1" aria-labelledby="dropdownButton">
 					<li>
 						<RouterLink
-							:to="`/edit/${template.id}`"
+							:to="`/edit/${quizz.id}`"
 							class="block py-2 px-4 text-sm text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-gray-200 dark:hover:text-white"
 							>Edit</RouterLink
 						>
 					</li>
-					<li @click="deleteTemplate()">
+					<li @click="deleteQuizz()">
 						<a
 							href="#"
 							class="block py-2 px-4 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-gray-200 dark:hover:text-white"
@@ -73,14 +68,14 @@ async function deleteTemplate() {
 			</div>
 		</div>
 		<div class="flex flex-col items-center pb-10">
-			<img class="mb-3 w-24 h-24 shadow-lg" :src="template.cover_url" alt="Bonnie image" />
+			<img class="mb-3 w-24 h-24 shadow-lg" :src="quizz.cover_url" alt="Bonnie image" />
 			<h5 class="mb-1 text-xl font-medium text-gray-900 dark:text-white">
-				<RouterLink :to="`/edit/${template.id}`">
-					{{ template.name }}
+				<RouterLink :to="`/edit/${quizz.id}`">
+					{{ quizz.name }}
 				</RouterLink>
 			</h5>
 			<span class="text-sm text-gray-500 dark:text-gray-400">{{
-				template.created_at.toDate().toLocaleString()
+				quizz.created_at.toDate().toLocaleString()
 			}}</span>
 			<div class="flex mt-4 space-x-3 md:mt-6">
 				<button
@@ -108,6 +103,14 @@ async function deleteTemplate() {
 			</div>
 			<div v-if="showShare" class="mt-5 mx-auto">
 				<qrcode-vue value="http://localhost:5173" level="H" />
+			</div>
+			<div v-if="showShare" class="my-4 mx-auto">
+				<RouterLink
+					:to="`/quizz/${quizz.slug}`"
+					class="text-white bg-gradient-to-r from-purple-500 to-pink-500 hover:bg-gradient-to-l focus:ring-4 focus:outline-none focus:ring-purple-200 dark:focus:ring-purple-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center"
+				>
+					Passer le quizz
+				</RouterLink>
 			</div>
 		</div>
 	</div>

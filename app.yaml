@@ -1,1 +1,4 @@
 runtime: go116
+
+env:
+  VUE_APP_BASE_URL: "https://quizzycupcake.fr"

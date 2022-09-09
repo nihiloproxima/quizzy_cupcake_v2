@@ -1,47 +1,43 @@
 <script setup lang="ts">
 import _ from 'lodash';
-import { computed, onMounted, reactive } from 'vue';
+import imageCompression from 'browser-image-compression';
+import { computed, onMounted } from 'vue';
 import { doc, getFirestore, onSnapshot, updateDoc } from 'firebase/firestore';
+import { getDownloadURL, getStorage, ref as storageRef, uploadBytesResumable } from 'firebase/storage';
 import { firebaseApp } from '../lib/db';
 import { useUserStore } from '../stores/user.store';
-import type { Answer, Question, Template } from '../models/template.model';
+import type { Answer, Question, Quizz } from '../models/quizz.model';
 import { useRoute } from 'vue-router';
 import router from '../router';
 
-const alpha = 'abcde';
+const alpha = 'ABCDE';
 
 const userStore = useUserStore();
 const db = getFirestore(firebaseApp);
+const storage = getStorage(firebaseApp);
 const route = useRoute();
+const ref = doc(db, `quizzs/${route.params.id}`);
 
-const ref = doc(db, `users/${userStore.user!.id}/templates/${route.params.id}`);
-
-const state = reactive<{
-	template: any;
-	uploadedImage: any;
-	uploadedFile: any;
-}>({
-	template: null,
-	uploadedImage: null,
-	uploadedFile: null,
-});
+let quizz = $ref<Quizz>();
+let uploading = $ref(false);
+let uploadProgress = $ref(0);
 
 const templateId = computed(() => {
 	return '';
 });
 
 async function input(e: any, prop: string) {
-	_.set(state.template, prop, e.target.outerText);
+	_.set(quizz, prop, e.target.outerText);
 	await save();
 }
 
 async function save() {
-	return updateDoc(ref, state.template);
+	return updateDoc(ref, quizz);
 }
 
 function removeQuestion(question: Question) {
-	const index = state.template.questions.indexOf(question);
-	state.template.questions.splice(index, 1);
+	const index = quizz.questions.indexOf(question);
+	quizz.questions.splice(index, 1);
 	save();
 }
 
@@ -55,27 +51,27 @@ function removeAnswer(question: Question, answer: Answer) {
 
 async function newQuestion() {
 	const question: Question = {
-		title: 'Question ' + (state.template.questions.length + 1),
+		title: 'Question ' + (quizz.questions.length + 1),
 		answers: [],
 	};
-	_.set(state.template, 'questions', [...state.template.questions, question]);
+	_.set(quizz, 'questions', [...quizz.questions, question]);
 	await save();
 }
 
 async function newAnswer(index: number) {
-	const question = state.template.questions[index];
+	const question = quizz.questions[index];
 	const answer: Answer = {
 		text: '',
 		valid: true,
 	};
-	_.set(state.template, `questions[${index}].answers`, [...question.answers, answer]);
+	_.set(quizz, `questions[${index}].answers`, [...question.answers, answer]);
 	await save();
 
 	return focusAnswer(null, index, question.answers.length - 1);
 }
 
 function switchValid(questionIndex: number, answerIndex: number, currentValue: boolean) {
-	_.set(state.template, `questions[${questionIndex}].answers[${answerIndex}].valid`, !currentValue);
+	_.set(quizz, `questions[${questionIndex}].answers[${answerIndex}].valid`, !currentValue);
 	return save();
 }
 
@@ -96,6 +92,61 @@ async function focusAnswer(event: any, questionIndex: number, answerIndex: numbe
 	}
 }
 
+function clickFileInput(id: string) {
+	const fileInput = document.getElementById(id);
+	if (fileInput) {
+		fileInput.click();
+	}
+}
+
+async function uploadQuestionImage(event: any, questionIndex: number) {
+	uploading = true;
+	const question = quizz.questions[questionIndex];
+	const file = event.target.files[0];
+
+	const isImage = file.type.match('image.*');
+
+	if (isImage) {
+		const compressedFile = await imageCompression(file, {
+			maxSizeMB: 1,
+			maxWidthOrHeight: 1920,
+			useWebWorker: true,
+		});
+		const suffix = file.name.split('.').pop();
+		const fileName = `${quizz.id}-${questionIndex}.${suffix}`;
+
+		// Create a reference to 'assets/category/file.jpg'
+		const imgRef = storageRef(storage, `quizzs/${quizz.id}/${fileName}`);
+
+		// Upload file and metadata to the object 'assets/category/file.jpg'
+		const uploadTask = uploadBytesResumable(imgRef, compressedFile, {
+			contentType: file.type,
+		});
+
+		// Listen for state changes, errors, and completion of the upload.
+		uploadTask.on(
+			'state_changed', // or 'state_changed'
+			(snapshot) => {
+				uploadProgress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+				console.log(uploadProgress);
+			},
+			(error) => {
+				console.error(error);
+			},
+			() => {
+				// Upload completed successfully, now we can get the download URL
+				getDownloadURL(imgRef).then((downloadURL: string) => {
+					quizz.questions[questionIndex].image_url = downloadURL;
+					uploadProgress = 0;
+					uploading = false;
+					return save();
+				});
+			}
+		);
+	}
+	// }
+}
+
 function hasMultipleAnswer(question: Question): boolean {
 	return question.answers.filter((a: any) => a.valid).length > 1;
 }
@@ -105,19 +156,23 @@ onMounted(() => {
 		if (!snapshot.exists()) {
 			router.push('/');
 		}
-		state.template = { id: snapshot.id, ...snapshot.data() } as Template;
+
+		quizz = { id: snapshot.id, ...snapshot.data() } as Quizz;
+		if (quizz.user_id !== userStore.user?.id) {
+			router.push('/');
+		}
 	});
 });
 </script>
 
 <template>
-	<div class="md:p-10" v-if="state.template">
+	<div class="md:p-10" v-if="quizz">
 		<div
 			class="mx-auto sm:w-2/3 w-full bg-white rounded-lg border border-gray-200 shadow-md dark:bg-gray-800 dark:border-gray-700"
 		>
 			<div class="p-6">
 				<div class="mb-5">
-					<img class="mx-auto mb-3 w-24 h-24 shadow-lg" :src="state.template.cover_url" alt="Bonnie image" />
+					<img class="mx-auto mb-3 max-w-lg max-h-80 shadow-lg" :src="quizz.cover_url" alt="Bonnie image" />
 
 					<h5
 						id="name"
@@ -125,14 +180,14 @@ onMounted(() => {
 						@blur="input($event, 'name')"
 						class="my-5 text-center mb-2 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white"
 					>
-						{{ state.template.name }}
+						{{ quizz.name }}
 					</h5>
 				</div>
 
 				<!-- Question title -->
 				<div
 					class="text-xl dark:text-white text-gray-900 front-bold mb-5"
-					v-for="(question, index) in state.template.questions"
+					v-for="(question, index) in quizz.questions"
 					:key="index"
 				>
 					<div class="flex items-stretch px-2 mb-2">
@@ -149,40 +204,85 @@ onMounted(() => {
 								>(Plusieurs réponses possibles)</span
 							><span class="ml-2 text-sm" v-else>(Une seule réponse possible)</span>
 						</h5>
-						<div>
-							<button
-								@click="removeQuestion(question)"
-								type="button"
-								class="relative mr-2 text-gray-700 border border-gray-700 hover:bg-gray-700 hover:text-white focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-full text-sm p-2.5 text-center inline-flex items-center dark:border-gray-500 dark:text-gray-500 dark:hover:text-white dark:focus:ring-gray-800"
+
+						<button
+							@click="removeQuestion(question)"
+							type="button"
+							class="relative mr-2 text-gray-700 border border-gray-700 hover:bg-gray-700 hover:text-white focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-full text-sm p-2.5 text-center inline-flex items-center dark:border-gray-500 dark:text-gray-500 dark:hover:text-white dark:focus:ring-gray-800"
+						>
+							<svg
+								class="w-4 h-4"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								xmlns="http://www.w3.org/2000/svg"
 							>
-								<svg
-									class="w-4 h-4"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-									xmlns="http://www.w3.org/2000/svg"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M20 12H4"
-									></path>
-								</svg>
-								<span class="sr-only">Icon description</span>
-							</button>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+								></path>
+							</svg>
+						</button>
+					</div>
+
+					<div v-if="question.image_url" class="my-4">
+						<img
+							class="max-w-lg h-auto max-h-80 rounded-lg mx-auto"
+							:src="question.image_url"
+							alt="image description"
+						/>
+					</div>
+
+					<div v-else class="flex justify-center">
+						<input
+							type="file"
+							@change="uploadQuestionImage($event, index)"
+							:id="`img-${index}`"
+							class="hidden"
+						/>
+
+						<a
+							href="#"
+							@click="clickFileInput(`img-${index}`)"
+							class="mb-3 font-normal text-gray-500 dark:text-gray-400 flex leading-2"
+							v-if="!uploading"
+						>
+							<svg
+								class="w-6 h-6"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+								></path>
+							</svg>
+							Ajouter une image
+						</a>
+						<div v-else class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+							<div
+								class="bg-gradient-to-r from-purple-500 to-pink-500 h-2.5 rounded-full"
+								:style="`width: ${uploadProgress}%`"
+							></div>
 						</div>
 					</div>
+
 					<!-- Answers list -->
 					<div
 						v-for="(answer, answerIndex) in question.answers"
 						:key="answerIndex"
 						class="flex items-stretch mb-2 px-2"
 					>
-						<p class="mr-2">{{ alpha[answerIndex] }}.</p>
+						<p class="mr-2 font-bold leading-10">{{ alpha[answerIndex] }}</p>
 						<p
 							:id="`questions-${index}-answers-${answerIndex}`"
-							class="mr-2 w-full"
+							class="mr-2 w-full leading-10 font-light"
 							contenteditable
 							@keydown.enter="focusAnswer($event, index, answerIndex + 1)"
 							@blur="input($event, `questions[${index}].answers[${answerIndex}].text`)"
@@ -194,7 +294,7 @@ onMounted(() => {
 						<button
 							@click="switchValid(index, answerIndex, answer.valid)"
 							type="button"
-							class="text-white focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-full text-sm p-2.5 text-center inline-flex items-center mr-2"
+							class="w-10 h-9 text-white focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-full text-sm p-2.5 text-center inline-flex items-center mr-2"
 							:class="answer.valid ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-800'"
 						>
 							<svg
@@ -227,14 +327,13 @@ onMounted(() => {
 									d="M6 18L18 6M6 6l12 12"
 								></path>
 							</svg>
-							<span class="sr-only">Icon description</span>
 						</button>
 
 						<!-- Delete answer -->
 						<button
 							@click="removeAnswer(question, answer)"
 							type="button"
-							class="mr-2 text-gray-700 border border-gray-700 hover:bg-gray-700 hover:text-white focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-full text-sm p-2.5 text-center inline-flex items-center dark:border-gray-500 dark:text-gray-500 dark:hover:text-white dark:focus:ring-gray-800"
+							class="w-10 h-9 mr-2 text-gray-700 border border-gray-700 hover:bg-gray-700 hover:text-white focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-full text-sm p-2.5 text-center inline-flex items-center dark:border-gray-500 dark:text-gray-500 dark:hover:text-white dark:focus:ring-gray-800"
 						>
 							<svg
 								class="w-4 h-4"
@@ -250,16 +349,15 @@ onMounted(() => {
 									d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
 								></path>
 							</svg>
-							<span class="sr-only">Icon description</span>
 						</button>
 					</div>
 
 					<!-- New answer -->
-					<div v-if="question.answers.length < 5">
+					<div v-if="question.answers.length < 5" class="flex justify-center">
 						<a
 							href="#"
 							@click="newAnswer(index)"
-							class="mb-3 font-normal text-gray-500 dark:text-gray-400 flex"
+							class="mb-3 font-normal text-gray-500 dark:text-gray-400 flex leading02"
 						>
 							<svg
 								class="w-6 h-6"
