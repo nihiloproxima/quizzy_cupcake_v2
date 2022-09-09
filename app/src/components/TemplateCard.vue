@@ -17,6 +17,7 @@ const showMenu = ref<boolean>(false);
 const showShare = ref<boolean>(false);
 
 async function deleteTemplate() {
+	showMenu.value = false;
 	const ref = doc(db, `users/${userStore.user!.id}/templates/${props.template.id}`);
 	await deleteDoc(ref);
 }
@@ -27,7 +28,7 @@ async function deleteTemplate() {
 		v-if="template"
 		class="w-full max-w-sm bg-white rounded-lg border border-gray-200 shadow-md dark:bg-gray-800 dark:border-gray-700"
 	>
-		<div class="flex justify-end px-4 pt-4">
+		<div class="flex justify-end px-4 pt-4 relative">
 			<button
 				id="dropdownButton"
 				@click="showMenu = !showMenu"
@@ -38,7 +39,6 @@ async function deleteTemplate() {
 				<span class="sr-only">Open dropdown</span>
 				<svg
 					class="w-6 h-6"
-					aria-hidden="true"
 					fill="currentColor"
 					viewBox="0 0 20 20"
 					xmlns="http://www.w3.org/2000/svg"
@@ -106,7 +106,7 @@ async function deleteTemplate() {
 					Partager
 				</button>
 			</div>
-			<div v-if="showShare" class="mt-2 mx-auto">
+			<div v-if="showShare" class="mt-5 mx-auto">
 				<qrcode-vue value="http://localhost:5173" level="H" />
 			</div>
 		</div>
