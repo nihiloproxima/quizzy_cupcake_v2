@@ -67,6 +67,8 @@ function retry() {
 }
 
 function clickAnswer(questionIndex: number, answerIndex: number) {
+	if (finished) return;
+
 	const question = quizz?.questions[questionIndex] as Question;
 	const multipleAnswers = hasMultipleAnswers(question);
 
