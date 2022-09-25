@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { getFirestore, where, query, collection, getDocs } from 'firebase/firestore';
-import { onMounted } from 'vue';
+import { onMounted, ref as vueRef } from 'vue';
 import _ from 'lodash';
 import { useRoute } from 'vue-router';
 import { firebaseApp } from '../lib/db';
@@ -8,9 +8,9 @@ import type { Question, Quizz } from '../models/quizz.model';
 
 const db = getFirestore(firebaseApp);
 const route = useRoute();
-const quizz = $ref<Quizz | null>(null);
-const answers = $ref<Array<{ q: number; a: Array<number> }>>([]);
-const finished = $ref<boolean>(false);
+const quizz = vueRef<Quizz | null>(null);
+const answers = vueRef<Array<{ q: number; a: Array<number> }>>([]);
+const finished = vueRef<boolean>(false);
 const alpha = 'ABCDE';
 
 function hasMultipleAnswers(question: Question): boolean {
@@ -18,7 +18,7 @@ function hasMultipleAnswers(question: Question): boolean {
 }
 
 function isSelected(qIndex: number, aIndex: number): boolean {
-	return answers.some((answer: any) => answer.q === qIndex && answer.a.includes(aIndex));
+	return answers.value.some((answer: any) => answer.q === qIndex && answer.a.includes(aIndex));
 }
 
 function backgroundColor(qIndex: number, aIndex: number): string {
@@ -39,10 +39,10 @@ function backgroundColor(qIndex: number, aIndex: number): string {
 }
 
 function answerStatus(qIndex: number, aIndex: number): string {
-	const question = quizz.questions[qIndex];
+	const question = quizz.value!.questions[qIndex];
 	const answer = question.answers[aIndex];
 
-	if (finished) {
+	if (finished.value == true) {
 		if (answer.valid && isSelected(qIndex, aIndex)) {
 			return 'correct';
 		} else if (!answer.valid && isSelected(qIndex, aIndex)) {
@@ -62,17 +62,17 @@ function answerStatus(qIndex: number, aIndex: number): string {
 }
 
 function retry() {
-	answers = [];
-	finished = false;
+	answers.value = [];
+	finished.value = false;
 }
 
 function clickAnswer(questionIndex: number, answerIndex: number) {
-	if (finished) return;
+	if (finished.value == true) return;
 
-	const question = quizz?.questions[questionIndex] as Question;
+	const question = quizz.value!.questions[questionIndex] as Question;
 	const multipleAnswers = hasMultipleAnswers(question);
 
-	const answer = _.find(answers, { q: questionIndex });
+	const answer = _.find(answers.value, { q: questionIndex });
 	if (answer) {
 		if (!multipleAnswers && answer.a.length > 0) {
 			answer.a = [];
@@ -84,7 +84,7 @@ function clickAnswer(questionIndex: number, answerIndex: number) {
 			answer.a.push(answerIndex);
 		}
 	} else {
-		answers.push({ q: questionIndex, a: [answerIndex] });
+		answers.value.push({ q: questionIndex, a: [answerIndex] });
 	}
 }
 
@@ -93,7 +93,7 @@ onMounted(async () => {
 		const q = query(collection(db, 'quizzs'), where('slug', '==', route.params.slug));
 		const querySnapshots = await getDocs(q);
 		if (querySnapshots.size) {
-			quizz = querySnapshots.docs[0].data() as Quizz;
+			quizz.value = querySnapshots.docs[0].data() as Quizz;
 		}
 	}
 });
@@ -103,15 +103,14 @@ onMounted(async () => {
 	<div class="md:p-10" v-if="quizz">
 		<div class="mx-auto sm:w-2/3 w-full rounded-lg border-2 shadow-md dark:bg-gray-800 dark:border-gray-700">
 			<div class="p-6">
-				<div class="mb-5">
-					<img class="mx-auto mb-3 max-w-lg max-h-80 shadow-lg" :src="quizz.cover_url" alt="Bonnie image" />
-
-					<h5
-						id="name"
-						class="my-5 text-center mb-2 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white"
-					>
-						{{ quizz.name }}
-					</h5>
+				<h1
+					id="name"
+					class="my-5 text-center mb-2 text-4xl font-semibold tracking-tight text-gray-900 dark:text-white"
+				>
+					{{ quizz.name }}
+				</h1>
+				<div class="my-5" v-if="quizz.thumbnail">
+					<img class="mx-auto mb-3 max-w-lg max-h-80 shadow-lg" :src="quizz.thumbnail" alt="Bonnie image" />
 				</div>
 
 				<!-- Question title -->

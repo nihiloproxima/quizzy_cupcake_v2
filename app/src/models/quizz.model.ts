@@ -4,7 +4,7 @@ export type Quizz = {
 	id: string;
 	slug: string;
 	name: string;
-	cover_url: string;
+	thumbnail: string | null;
 	questions: Array<Question>;
 	visibility: 'public' | 'private';
 	tags: Array<string>;
@@ -15,7 +15,7 @@ export type Quizz = {
 
 export type Question = {
 	title: string;
-	image_url?: string;
+	image_url: string | null;
 	answers: Array<Answer>;
 };
 

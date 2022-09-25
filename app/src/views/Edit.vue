@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import _ from 'lodash';
 import imageCompression from 'browser-image-compression';
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref as vueRef } from 'vue';
 import { doc, getFirestore, onSnapshot, updateDoc } from 'firebase/firestore';
-import { getDownloadURL, getStorage, ref as storageRef, uploadBytesResumable } from 'firebase/storage';
+import { deleteObject, getDownloadURL, getStorage, ref as storageRef, uploadBytesResumable } from 'firebase/storage';
 import { firebaseApp } from '../lib/db';
 import { useUserStore } from '../stores/user.store';
 import type { Answer, Question, Quizz } from '../models/quizz.model';
@@ -18,9 +18,9 @@ const storage = getStorage(firebaseApp);
 const route = useRoute();
 const ref = doc(db, `quizzs/${route.params.id}`);
 
-let quizz = $ref<Quizz>();
-let uploading = $ref(false);
-let uploadProgress = $ref(0);
+const quizz = vueRef<Quizz>();
+const uploading = vueRef(false);
+const uploadProgress = vueRef(0);
 
 const templateId = computed(() => {
 	return '';
@@ -32,12 +32,12 @@ async function input(e: any, prop: string) {
 }
 
 async function save() {
-	return updateDoc(ref, quizz);
+	return updateDoc(ref, quizz.value);
 }
 
 function removeQuestion(question: Question) {
-	const index = quizz.questions.indexOf(question);
-	quizz.questions.splice(index, 1);
+	const index = quizz.value!.questions.indexOf(question);
+	quizz.value!.questions.splice(index, 1);
 	save();
 }
 
@@ -51,27 +51,28 @@ function removeAnswer(question: Question, answer: Answer) {
 
 async function newQuestion() {
 	const question: Question = {
-		title: 'Question ' + (quizz.questions.length + 1),
+		title: 'Question ' + (quizz.value!.questions.length + 1),
+		image_url: null,
 		answers: [],
 	};
-	_.set(quizz, 'questions', [...quizz.questions, question]);
+	_.set(quizz.value!, 'questions', [...quizz.value!.questions, question]);
 	await save();
 }
 
 async function newAnswer(index: number) {
-	const question = quizz.questions[index];
+	const question = quizz.value!.questions[index];
 	const answer: Answer = {
 		text: '',
 		valid: true,
 	};
-	_.set(quizz, `questions[${index}].answers`, [...question.answers, answer]);
+	_.set(quizz.value!, `questions[${index}].answers`, [...question.answers, answer]);
 	await save();
 
 	return focusAnswer(null, index, question.answers.length - 1);
 }
 
 function switchValid(questionIndex: number, answerIndex: number, currentValue: boolean) {
-	_.set(quizz, `questions[${questionIndex}].answers[${answerIndex}].valid`, !currentValue);
+	_.set(quizz.value!, `questions[${questionIndex}].answers[${answerIndex}].valid`, !currentValue);
 	return save();
 }
 
@@ -99,11 +100,36 @@ function clickFileInput(id: string) {
 	}
 }
 
-async function uploadQuestionImage(event: any, questionIndex: number) {
-	uploading = true;
-	const question = quizz.questions[questionIndex];
-	const file = event.target.files[0];
+async function removeImage(questionIndex?: number) {
+	let fileName = '';
+	if (questionIndex !== undefined) {
+		const question = quizz.value!.questions[questionIndex];
+		const suffix = question.image_url!.split('?')[0].split('.').pop() || '';
+		fileName = `${quizz.value!.id}-${questionIndex}.${suffix}`;
+	} else {
+		const suffix = quizz.value!.thumbnail!.split('?')[0].split('.').pop() || '';
+		fileName = `${quizz.value!.id}-thumbnail.${suffix}`;
+	}
 
+	const ref = storageRef(storage, `quizzs/${quizz.value!.id}/${fileName}`);
+	try {
+		await deleteObject(ref);
+	} catch (error) {
+		console.log(error);
+	}
+
+	if (questionIndex !== undefined) {
+		_.set(quizz.value!, `questions[${questionIndex}].image_url`, null);
+	} else {
+		_.set(quizz.value!, 'thumbnail', null);
+	}
+	save();
+}
+
+async function uploadImage(event: any, questionIndex?: number) {
+	uploading.value = true;
+
+	const file = event.target.files[0];
 	const isImage = file.type.match('image.*');
 
 	if (isImage) {
@@ -113,10 +139,10 @@ async function uploadQuestionImage(event: any, questionIndex: number) {
 			useWebWorker: true,
 		});
 		const suffix = file.name.split('.').pop();
-		const fileName = `${quizz.id}-${questionIndex}.${suffix}`;
+		const fileName = `${quizz.value!.id}-${questionIndex !== undefined ? questionIndex : 'thumbnail'}.${suffix}`;
 
 		// Create a reference to 'assets/category/file.jpg'
-		const imgRef = storageRef(storage, `quizzs/${quizz.id}/${fileName}`);
+		const imgRef = storageRef(storage, `quizzs/${quizz.value!.id}/${fileName}`);
 
 		// Upload file and metadata to the object 'assets/category/file.jpg'
 		const uploadTask = uploadBytesResumable(imgRef, compressedFile, {
@@ -127,7 +153,7 @@ async function uploadQuestionImage(event: any, questionIndex: number) {
 		uploadTask.on(
 			'state_changed', // or 'state_changed'
 			(snapshot) => {
-				uploadProgress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+				uploadProgress.value = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
 				console.log(uploadProgress);
 			},
 			(error) => {
@@ -136,9 +162,13 @@ async function uploadQuestionImage(event: any, questionIndex: number) {
 			() => {
 				// Upload completed successfully, now we can get the download URL
 				getDownloadURL(imgRef).then((downloadURL: string) => {
-					quizz.questions[questionIndex].image_url = downloadURL;
-					uploadProgress = 0;
-					uploading = false;
+					if (questionIndex !== undefined) {
+						quizz.value!.questions[questionIndex].image_url = downloadURL;
+					} else {
+						quizz.value!.thumbnail = downloadURL;
+					}
+					uploadProgress.value = 0;
+					uploading.value = false;
 					return save();
 				});
 			}
@@ -157,8 +187,8 @@ onMounted(() => {
 			router.push('/');
 		}
 
-		quizz = { id: snapshot.id, ...snapshot.data() } as Quizz;
-		if (quizz.user_id !== userStore.user?.id) {
+		quizz.value = { id: snapshot.id, ...snapshot.data() } as Quizz;
+		if (quizz.value.user_id !== userStore.user?.id) {
 			router.push('/');
 		}
 	});
@@ -170,18 +200,80 @@ onMounted(() => {
 		<div
 			class="mx-auto sm:w-2/3 w-full bg-white rounded-lg border border-gray-200 shadow-md dark:bg-gray-800 dark:border-gray-700"
 		>
+			<div v-if="uploading" class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+				<div
+					class="bg-gradient-to-r from-purple-500 to-pink-500 h-2.5 rounded-full"
+					:style="`width: ${uploadProgress}%`"
+				></div>
+			</div>
 			<div class="p-6">
-				<div class="mb-5">
-					<img class="mx-auto mb-3 max-w-lg max-h-80 shadow-lg" :src="quizz.cover_url" alt="Bonnie image" />
-
-					<h5
-						id="name"
-						contenteditable
-						@blur="input($event, 'name')"
-						class="my-5 text-center mb-2 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white"
-					>
-						{{ quizz.name }}
-					</h5>
+				<h1
+					id="name"
+					contenteditable
+					@blur="input($event, 'name')"
+					class="my-5 text-center mb-2 text-4xl font-semibold tracking-tight text-gray-900 dark:text-white"
+				>
+					{{ quizz.name }}
+				</h1>
+				<div class="my-5">
+					<div class="float-right" v-if="quizz.thumbnail">
+						<button
+							@click="removeImage()"
+							type="button"
+							class="text-gray-700 border border-gray-700 hover:bg-gray-700 hover:text-white focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-full text-sm p-2.5 text-center inline-flex items-center dark:border-gray-500 dark:text-gray-500 dark:hover:text-white dark:focus:ring-gray-800"
+						>
+							<svg
+								class="w-4 h-4"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+								></path>
+							</svg>
+						</button>
+					</div>
+					<img
+						v-if="quizz.thumbnail"
+						class="mx-auto mb-3 max-w-lg max-h-80 shadow-lg"
+						:src="quizz.thumbnail"
+					/>
+					<div v-else class="flex justify-center items-center w-full">
+						<label
+							for="dropzone-file"
+							class="flex flex-col justify-center items-center w-full h-64 bg-gray-50 rounded-lg border-2 border-gray-300 border-dashed cursor-pointer dark:hover:bg-bray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600"
+						>
+							<div class="flex flex-col justify-center items-center pt-5 pb-6">
+								<svg
+									aria-hidden="true"
+									class="mb-3 w-10 h-10 text-gray-400"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+									xmlns="http://www.w3.org/2000/svg"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+									></path>
+								</svg>
+								<p class="mb-2 text-sm text-gray-500 dark:text-gray-400">
+									<span class="font-semibold">Cliquez pour ajouter une image</span> ou glissez déposez
+								</p>
+								<p class="text-xs text-gray-500 dark:text-gray-400">
+									SVG, PNG, JPG or GIF (MAX. 800x400px)
+								</p>
+							</div>
+						</label>
+						<input id="dropzone-file" type="file" class="hidden" @change="uploadImage($event)" />
+					</div>
 				</div>
 
 				<!-- Question title -->
@@ -228,6 +320,29 @@ onMounted(() => {
 					</div>
 
 					<div v-if="question.image_url" class="my-4">
+						<div class="float-right mr-4">
+							<button
+								@click="removeImage(index)"
+								type="button"
+								class="text-gray-700 border border-gray-700 hover:bg-gray-700 hover:text-white focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-full text-sm p-2.5 text-center inline-flex items-center dark:border-gray-500 dark:text-gray-500 dark:hover:text-white dark:focus:ring-gray-800"
+							>
+								<svg
+									class="w-4 h-4"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+									xmlns="http://www.w3.org/2000/svg"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+									></path>
+								</svg>
+							</button>
+						</div>
+
 						<img
 							class="max-w-lg h-auto max-h-80 rounded-lg mx-auto"
 							:src="question.image_url"
@@ -236,18 +351,12 @@ onMounted(() => {
 					</div>
 
 					<div v-else class="flex justify-center">
-						<input
-							type="file"
-							@change="uploadQuestionImage($event, index)"
-							:id="`img-${index}`"
-							class="hidden"
-						/>
+						<input type="file" @change="uploadImage($event, index)" :id="`img-${index}`" class="hidden" />
 
 						<a
 							href="#"
 							@click="clickFileInput(`img-${index}`)"
 							class="mb-3 font-normal text-gray-500 dark:text-gray-400 flex leading-2"
-							v-if="!uploading"
 						>
 							<svg
 								class="w-6 h-6"
@@ -265,12 +374,6 @@ onMounted(() => {
 							</svg>
 							Ajouter une image
 						</a>
-						<div v-else class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-							<div
-								class="bg-gradient-to-r from-purple-500 to-pink-500 h-2.5 rounded-full"
-								:style="`width: ${uploadProgress}%`"
-							></div>
-						</div>
 					</div>
 
 					<!-- Answers list -->

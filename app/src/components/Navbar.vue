@@ -14,7 +14,7 @@ const route = useRoute();
 async function createQuizz() {
 	const template: Partial<Quizz> = {
 		slug: slugGenerator(),
-		cover_url: '/icon.png',
+		thumbnail: null,
 		name: 'Mon super Quizz!',
 		questions: [],
 		tags: [],

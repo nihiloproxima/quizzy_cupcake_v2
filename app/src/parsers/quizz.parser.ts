@@ -13,7 +13,7 @@ export function parseQuizz(snap: DocumentSnapshot): Quizz {
 		id: snap.id,
 		name: '',
 		slug: slugGenerator(),
-		cover_url: '/icon.png',
+		thumbnail: '/icon.png',
 		questions: [],
 		visibility: 'private',
 		tags: [],
