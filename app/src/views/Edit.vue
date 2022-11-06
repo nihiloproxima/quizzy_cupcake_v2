@@ -59,8 +59,15 @@ async function newQuestion() {
 	await save();
 }
 
-async function newAnswer(index: number) {
+async function newAnswer(event: any, index: number) {
+	event.preventDefault();
+
 	const question = quizz.value!.questions[index];
+
+	if (question.answers.length >= 5) {
+		return;
+	}
+
 	const answer: Answer = {
 		text: '',
 		valid: true,
@@ -83,9 +90,8 @@ async function focusAnswer(event: any, questionIndex: number, answerIndex: numbe
 
 	const elem = document.getElementById(`questions-${questionIndex}-answers-${answerIndex}`);
 
-	if (!elem && answerIndex < 5) {
-		await newAnswer(questionIndex);
-		return focusAnswer(event, questionIndex, answerIndex);
+	if (!elem && answerIndex < 4) {
+		await newAnswer(null, questionIndex);
 	}
 
 	if (elem) {
@@ -184,6 +190,7 @@ function hasMultipleAnswer(question: Question): boolean {
 onMounted(() => {
 	onSnapshot(ref, (snapshot) => {
 		if (!snapshot.exists()) {
+			console.log('snap does not exist');
 			router.push('/');
 		}
 
@@ -459,7 +466,7 @@ onMounted(() => {
 					<div v-if="question.answers.length < 5" class="flex justify-center">
 						<a
 							href="#"
-							@click="newAnswer(index)"
+							@click="newAnswer($event, index)"
 							class="mb-3 font-normal text-gray-500 dark:text-gray-400 flex leading02"
 						>
 							<svg
