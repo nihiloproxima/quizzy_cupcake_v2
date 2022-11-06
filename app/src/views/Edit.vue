@@ -27,7 +27,7 @@ const templateId = computed(() => {
 });
 
 async function input(e: any, prop: string) {
-	_.set(quizz, prop, e.target.outerText);
+	_.set(quizz.value!, prop, e.target.outerText);
 	await save();
 }
 
