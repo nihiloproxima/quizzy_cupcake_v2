@@ -1,2 +1,6 @@
 dist/
 resources/service_account.json
+node_modules/
+.env*
+.env
+app/node_modules/

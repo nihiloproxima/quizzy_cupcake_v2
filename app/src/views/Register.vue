@@ -6,7 +6,6 @@ import {
 	setPersistence,
 	signInWithPopup,
 	browserLocalPersistence,
-	signInWithEmailAndPassword,
 	createUserWithEmailAndPassword,
 } from '@firebase/auth';
 import { auth } from '../lib/db';
@@ -65,21 +64,21 @@ async function handleSuccess(response: UserCredential) {
 </script>
 
 <template>
-	<div class="grid grid-cols-3 h-screen">
+	<div class="grid grid-cols-3 h-screen dark:bg-gray-800">
 		<div class="bg-gradient-to-r from-purple-500 to-pink-500 col-span-2">
 			<div class="flex items-center justify-center h-full">
 				<div class="text-center">
-					<h1 class="text-5xl font-bold text-white">Let's make a quizz!</h1>
-					<p class="text-2xl text-white">Welcome to Quizzy Cupcake!</p>
+					<h1 class="text-5xl font-bold text-white">Bienvenue sur Quizzy Cupcake !</h1>
+					<p class="text-2xl text-white">Vous devez avoir un compte pour créer des quizzs personnalisés</p>
 				</div>
 			</div>
 		</div>
 		<div class="px-10 place-self-center w-full">
 			<form>
-				<h1 class="text-white text-2xl font-bold mb-5">Register</h1>
+				<h1 class="text-white text-2xl font-bold mb-5">Inscription</h1>
 				<div class="mb-6">
 					<label for="email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300"
-						>Your email</label
+						>Email</label
 					>
 					<input
 						v-model="state.email"
@@ -91,7 +90,7 @@ async function handleSuccess(response: UserCredential) {
 				</div>
 				<div class="mb-6">
 					<label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300"
-						>Your password</label
+						>Mot de passe</label
 					>
 					<input
 						v-model="state.password"
@@ -103,7 +102,7 @@ async function handleSuccess(response: UserCredential) {
 				</div>
 				<div class="mb-6">
 					<label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300"
-						>Confirm your password</label
+						>Confirmation du mot de passe</label
 					>
 					<input
 						v-model="state.passwordConfirm"

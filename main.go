@@ -9,12 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func redirect(w http.ResponseWriter, req *http.Request) {
-	http.Redirect(w, req,
-		"https://"+req.Host+req.URL.String(),
-		http.StatusMovedPermanently)
-}
-
 func main() {
 	clients := db.InitClients(context.Background())
 

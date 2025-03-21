@@ -61,6 +61,7 @@ async function handleSuccess(response: UserCredential) {
 		<div class="bg-gradient-to-r from-purple-500 to-pink-500 col-span-2">
 			<div class="flex items-center justify-center h-full">
 				<div class="text-center">
+					<img src="/icon.png" class="h-28 w-auto m-auto" />
 					<h1 class="text-5xl font-bold text-white">Let's make a quizz!</h1>
 					<p class="text-2xl text-white">Welcome to Quizzy Cupcake!</p>
 				</div>

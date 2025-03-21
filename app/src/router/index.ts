@@ -31,11 +31,17 @@ const router = createRouter({
 			path: '/login',
 			name: 'login',
 			component: () => import('../views/Login.vue'),
+			meta: {
+				requiresAuth: false,
+			},
 		},
 		{
 			path: '/register',
 			name: 'register',
 			component: () => import('../views/Register.vue'),
+			meta: {
+				requiresAuth: false,
+			},
 		},
 	],
 });
@@ -43,7 +49,7 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
 	// if user is not logged in and is not on the login page
 	const token = localStorage.getItem('token');
-	if (!token && to.meta.requiresAuth) {
+	if (!token && to.meta.requiresAuth === true) {
 		next({ name: 'login' });
 	}
 
