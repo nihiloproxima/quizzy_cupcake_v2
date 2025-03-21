@@ -9,6 +9,7 @@ Quizzy Cupcake is a dynamic quiz creation and management platform that allows us
 - 📱 Responsive design for all devices
 - 🔗 Share quizzes easily via links or QR codes
 
+![Demo](demo.gif)
 
 ## 🚀 Tech Stack
 
