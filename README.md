@@ -4,7 +4,7 @@ Quizzy Cupcake is a dynamic quiz creation and management platform that allows us
 
 - 📝 Easy quiz creation with multiple-choice questions
 - 🖼️ Support for image integration in questions
-- 📊 Real-time scoring and feedback
+- 📊 Real-time saves and seemless saves
 - 🎨 Clean, intuitive user interface
 - 📱 Responsive design for all devices
 - 🔗 Share quizzes easily via links or QR codes
